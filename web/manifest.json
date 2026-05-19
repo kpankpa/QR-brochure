@@ -1,11 +1,11 @@
 {
-    "name": "QR Brochure",
-    "short_name": "QR Brochure",
+    "name": "SwiftShare - QR Code Generator",
+    "short_name": "SwiftShare",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "QR codes for PDFs, images, and website URLs.",
+    "background_color": "#2E6AE6",
+    "theme_color": "#2E6AE6",
+    "description": "Generate QR codes for your files and links. Sign in with Google to manage your uploads.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
