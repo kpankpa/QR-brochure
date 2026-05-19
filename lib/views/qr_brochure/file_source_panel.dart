@@ -21,73 +21,162 @@ class FileSourcePanel extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final file = viewModel.pickedFile;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: scheme.primaryContainer.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(12),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.zero,
+        border: Border.all(color: const Color(0xFFD9DEE8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F8FA),
+              borderRadius: BorderRadius.zero,
+              border: Border.all(color: const Color(0xFFD9DEE8)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.cloud_upload_outlined, color: scheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'PDF or image is uploaded to Supabase Storage. '
+                    'The QR encodes the public download link.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 16),
+          Row(
             children: [
-              Icon(Icons.cloud_upload_outlined, color: scheme.primary),
-              const SizedBox(width: 12),
-              Expanded(
+              const Icon(Icons.timer_outlined, size: 18),
+              const SizedBox(width: 8),
+              const Text('Expiration Settings'),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF3FF),
+                  borderRadius: BorderRadius.zero,
+                ),
                 child: Text(
-                  'PDF or image is uploaded to Supabase Storage. '
-                  'The QR encodes the public download link.',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  viewModel.expirySummary,
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: viewModel.busy ? null : () => viewModel.pickFile(),
-          icon: const Icon(Icons.folder_open_rounded),
-          label: const Text('Choose PDF or image'),
-        ),
-        if (file != null) ...[
-          const SizedBox(height: 12),
-          Card(
-            elevation: 0,
-            child: ListTile(
-              leading: Icon(
-                file.extension == 'pdf'
-                    ? Icons.picture_as_pdf_rounded
-                    : Icons.image_outlined,
+          const SizedBox(height: 10),
+          SegmentedButton<ExpiryPreset>(
+            style: ButtonStyle(
+              side: WidgetStateProperty.all(
+                const BorderSide(color: Color(0xFF35506C)),
               ),
-              title: Text(
-                file.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(sizeLabel(file) ?? 'Ready to upload'),
             ),
+            segments: const [
+              ButtonSegment(value: ExpiryPreset.oneHour, label: Text('1 hour')),
+              ButtonSegment(value: ExpiryPreset.oneDay, label: Text('1 day')),
+              ButtonSegment(value: ExpiryPreset.oneWeek, label: Text('1 week')),
+              ButtonSegment(value: ExpiryPreset.custom, label: Text('Custom')),
+            ],
+            selected: {viewModel.expiryPreset},
+            onSelectionChanged: (set) async {
+              final selected = set.first;
+              if (selected == ExpiryPreset.custom) {
+                final days = await _showCustomDaysDialog(context);
+                if (days != null) {
+                  viewModel.setCustomExpiryDays(days);
+                }
+                return;
+              }
+              viewModel.setExpiryPreset(selected);
+            },
           ),
           const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed:
-                viewModel.busy ? null : () => viewModel.uploadAndCreateQr(),
-            icon:
-                viewModel.busy
-                    ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: scheme.onPrimary,
-                      ),
-                    )
-                    : const Icon(Icons.qr_code_rounded),
-            label: Text(viewModel.busy ? 'Uploading…' : 'Upload & create QR'),
+          OutlinedButton.icon(
+            onPressed: viewModel.busy ? null : () => viewModel.pickFile(),
+            icon: const Icon(Icons.folder_open_rounded),
+            label: const Text('Choose PDF or image'),
           ),
+          if (file != null) ...[
+            const SizedBox(height: 12),
+            Card(
+              elevation: 0,
+              child: ListTile(
+                leading: Icon(
+                  file.extension == 'pdf'
+                      ? Icons.picture_as_pdf_rounded
+                      : Icons.image_outlined,
+                ),
+                title: Text(
+                  file.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(sizeLabel(file) ?? 'Ready to upload'),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed:
+                  viewModel.busy ? null : () => viewModel.uploadAndCreateQr(),
+              icon:
+                  viewModel.busy
+                      ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: scheme.onPrimary,
+                        ),
+                      )
+                      : const Icon(Icons.qr_code_rounded),
+              label: Text(viewModel.busy ? 'Uploading…' : 'Upload & create QR'),
+            ),
+          ],
         ],
-      ],
+      ),
+    );
+  }
+
+  Future<int?> _showCustomDaysDialog(BuildContext context) async {
+    final controller = TextEditingController(text: '2');
+    return showDialog<int>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Custom expiry'),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Days (1-30)'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final days = int.tryParse(controller.text.trim());
+                if (days == null || days < 1 || days > 30) return;
+                Navigator.of(context).pop(days);
+              },
+              child: const Text('Apply'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

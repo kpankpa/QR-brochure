@@ -1,10 +1,10 @@
--- Supabase Storage Policies - Public Upload (No Supabase Auth Required)
--- Firebase Auth handles user authentication
+-- Supabase Storage Policies - Signed URL (private bucket)
+-- Firebase Auth handles user tracking in Firestore
 -- Run in: Supabase → SQL Editor → New query → Run
 
--- Ensure bucket exists and is public
+-- Ensure bucket exists and is private
 insert into storage.buckets (id, name, public)
-values ('QR-bucket', 'QR-bucket', true)
+values ('QR-bucket', 'QR-bucket', false)
 on conflict (id) do update set public = excluded.public;
 
 -- Drop all existing policies
@@ -16,29 +16,27 @@ drop policy if exists "QR-bucket public read" on storage.objects;
 drop policy if exists "QR-bucket insert own folder" on storage.objects;
 drop policy if exists "QR-bucket update own folder" on storage.objects;
 drop policy if exists "QR-bucket delete own folder" on storage.objects;
+drop policy if exists "QR-bucket signed select" on storage.objects;
+drop policy if exists "QR-bucket insert all" on storage.objects;
+drop policy if exists "QR-bucket update all" on storage.objects;
+drop policy if exists "QR-bucket delete all" on storage.objects;
 
--- PUBLIC READ: Anyone can read/download files (needed for QR codes)
-create policy "QR-bucket public read"
+-- Select needed for createSignedUrl API.
+create policy "QR-bucket signed select"
 on storage.objects for select
 using (bucket_id = 'QR-bucket');
 
--- PUBLIC UPLOAD: Allow uploads without authentication
--- Note: This is simplified for demo. For production, use row-level security
--- or switch to Firebase Storage.
-create policy "QR-bucket public insert"
+create policy "QR-bucket insert all"
 on storage.objects for insert
 with check (bucket_id = 'QR-bucket');
 
-create policy "QR-bucket public update"
+create policy "QR-bucket update all"
 on storage.objects for update
 using (bucket_id = 'QR-bucket')
 with check (bucket_id = 'QR-bucket');
 
-create policy "QR-bucket public delete"
+create policy "QR-bucket delete all"
 on storage.objects for delete
 using (bucket_id = 'QR-bucket');
 
--- IMPORTANT: For production, restrict uploads by implementing:
--- 1. Server-side validation with Firebase Cloud Functions
--- 2. Or switch to Firebase Storage with proper security rules
--- 3. Or use API keys + rate limiting in Supabase
+-- IMPORTANT: For stricter production controls, add API-layer validation/rate limiting.

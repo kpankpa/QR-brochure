@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/http_uri.dart';
+import '../models/brochure_record.dart';
 import '../models/source_kind.dart';
 import '../services/brochure_catalog_service.dart';
 import '../services/qr_downloader_stub.dart'
@@ -16,6 +17,8 @@ import '../services/storage_upload_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 typedef UserNoticeCallback = void Function(String message);
+
+enum ExpiryPreset { oneHour, oneDay, oneWeek, custom }
 
 /// ViewModel for the QR Brochure workspace (MVVM).
 class QrBrochureViewModel extends ChangeNotifier {
@@ -33,7 +36,10 @@ class QrBrochureViewModel extends ChangeNotifier {
   UserNoticeCallback? onUserNotice;
 
   SourceKind source = SourceKind.link;
+  ExpiryPreset expiryPreset = ExpiryPreset.oneDay;
+  int customExpiryHours = 48;
   String? qrPayload;
+  bool selectedHistoryExpired = false;
   PlatformFile? pickedFile;
   bool busy = false;
   String? urlError;
@@ -52,6 +58,47 @@ class QrBrochureViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setExpiryPreset(ExpiryPreset preset) {
+    expiryPreset = preset;
+    notifyListeners();
+  }
+
+  void setCustomExpiryDays(int days) {
+    final safeDays = days.clamp(1, 30);
+    customExpiryHours = safeDays * 24;
+    expiryPreset = ExpiryPreset.custom;
+    notifyListeners();
+  }
+
+  int get expiryHours {
+    switch (expiryPreset) {
+      case ExpiryPreset.oneHour:
+        return 1;
+      case ExpiryPreset.oneDay:
+        return 24;
+      case ExpiryPreset.oneWeek:
+        return 24 * 7;
+      case ExpiryPreset.custom:
+        return customExpiryHours;
+    }
+  }
+
+  DateTime get expiryDate => DateTime.now().add(Duration(hours: expiryHours));
+
+  String get expirySummary {
+    switch (expiryPreset) {
+      case ExpiryPreset.oneHour:
+        return 'Active: 1 hour';
+      case ExpiryPreset.oneDay:
+        return 'Active: 1 day';
+      case ExpiryPreset.oneWeek:
+        return 'Active: 1 week';
+      case ExpiryPreset.custom:
+        final days = (customExpiryHours / 24).round();
+        return 'Active: $days day${days == 1 ? '' : 's'}';
+    }
+  }
+
   void clearUrlError() {
     if (urlError == null) return;
     urlError = null;
@@ -61,6 +108,7 @@ class QrBrochureViewModel extends ChangeNotifier {
   /// Loads a stored brochure URL into the QR preview (from history).
   void applyBrochureUrl(String downloadUrl) {
     qrPayload = downloadUrl;
+    selectedHistoryExpired = false;
     notifyListeners();
   }
 
@@ -71,6 +119,7 @@ class QrBrochureViewModel extends ChangeNotifier {
     if (uri == null) return;
 
     qrPayload = uri.toString();
+    selectedHistoryExpired = false;
     notifyListeners();
 
     if (uri.scheme == 'http') {
@@ -88,6 +137,7 @@ class QrBrochureViewModel extends ChangeNotifier {
 
     pickedFile = result.files.single;
     qrPayload = null;
+    selectedHistoryExpired = false;
     notifyListeners();
   }
 
@@ -104,13 +154,19 @@ class QrBrochureViewModel extends ChangeNotifier {
       final receipt = await _storage.uploadUserBytes(
         bytes: file.bytes!,
         fileName: file.name,
+        expiresInSeconds: expiryHours * 3600,
       );
       qrPayload = receipt.downloadUrl;
+      selectedHistoryExpired = false;
       try {
+        final expiresAt = DateTime.now().add(Duration(hours: expiryHours));
         await _catalog.recordUpload(
           userId: receipt.uid,
           downloadUrl: receipt.downloadUrl,
           fileName: file.name,
+          objectPath: receipt.objectPath,
+          expiresAt: expiresAt,
+          expiryHours: expiryHours,
         );
       } catch (_) {
         _toast(
@@ -153,6 +209,8 @@ class QrBrochureViewModel extends ChangeNotifier {
       final painter = QrPainter(
         data: payload,
         version: QrVersions.auto,
+        color: Colors.black,
+        emptyColor: Colors.white,
         eyeStyle: const QrEyeStyle(
           eyeShape: QrEyeShape.square,
           color: Colors.black,
@@ -180,6 +238,51 @@ class QrBrochureViewModel extends ChangeNotifier {
       _toast(ok ? 'QR code downloaded' : 'Download canceled');
     } catch (_) {
       _toast('Could not download QR code.');
+    }
+  }
+
+  Future<void> useBrochureFromHistory(BrochureRecord record) async {
+    if (record.isExpired) {
+      qrPayload = record.downloadUrl.isNotEmpty ? record.downloadUrl : null;
+      selectedHistoryExpired = true;
+      notifyListeners();
+      _toast('This QR link has expired.');
+      return;
+    }
+
+    if (record.objectPath.isEmpty) {
+      // Legacy record fallback.
+      selectedHistoryExpired = false;
+      applyBrochureUrl(record.downloadUrl);
+      return;
+    }
+
+    final expiresAt = record.expiresAt;
+    if (expiresAt == null) {
+      selectedHistoryExpired = false;
+      applyBrochureUrl(record.downloadUrl);
+      return;
+    }
+
+    final remainingSeconds = expiresAt.difference(DateTime.now()).inSeconds;
+    if (remainingSeconds <= 0) {
+      qrPayload = record.downloadUrl.isNotEmpty ? record.downloadUrl : null;
+      selectedHistoryExpired = true;
+      notifyListeners();
+      _toast('This QR link has expired.');
+      return;
+    }
+
+    try {
+      final signedUrl = await _storage.createSignedDownloadUrl(
+        objectPath: record.objectPath,
+        expiresInSeconds: remainingSeconds,
+      );
+      qrPayload = signedUrl;
+      selectedHistoryExpired = false;
+      notifyListeners();
+    } on StorageUploadFailure catch (e) {
+      _toast(e.message);
     }
   }
 

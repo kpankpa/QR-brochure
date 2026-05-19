@@ -17,12 +17,19 @@ class StorageUploadFailure implements Exception {
 
 /// Result of a successful Storage upload (URL + Firebase uid for Firestore catalog).
 class StorageUploadReceipt {
-  const StorageUploadReceipt({required this.downloadUrl, required this.uid});
+  const StorageUploadReceipt({
+    required this.downloadUrl,
+    required this.uid,
+    required this.objectPath,
+  });
 
   final String downloadUrl;
 
   /// Firebase Auth uid — used as `users/{uid}/brochures` in Firestore.
   final String uid;
+
+  /// Supabase Storage object path for signed URL regeneration.
+  final String objectPath;
 }
 
 /// Uploads files to **Supabase Storage** using a Supabase session, while keeping
@@ -48,6 +55,7 @@ class StorageUploadService {
   Future<StorageUploadReceipt> uploadUserBytes({
     required Uint8List bytes,
     required String fileName,
+    required int expiresInSeconds,
   }) async {
     final sb = _clientOrNull();
     if (!isSupabaseConfigured || sb == null) {
@@ -74,8 +82,8 @@ class StorageUploadService {
       throw StorageUploadFailure('Could not sign in to Firebase.');
     }
 
-    // Supabase Storage: Upload without authentication
-    // Storage policies must allow public uploads
+    // Supabase Storage: Upload without Supabase auth.
+    // Signed URLs provide expiring access for QR scans.
     final safeName = fileName.replaceAll(RegExp(r'[^\w.\-]'), '_');
     final objectPath =
         '${fbUser.uid}/${DateTime.now().millisecondsSinceEpoch}_$safeName';
@@ -91,13 +99,41 @@ class StorageUploadService {
             ),
           );
 
-      final publicUrl = sb.storage.from(_bucket).getPublicUrl(objectPath);
-      return StorageUploadReceipt(downloadUrl: publicUrl, uid: fbUser.uid);
+      final signedUrl = await createSignedDownloadUrl(
+        objectPath: objectPath,
+        expiresInSeconds: expiresInSeconds,
+      );
+      return StorageUploadReceipt(
+        downloadUrl: signedUrl,
+        uid: fbUser.uid,
+        objectPath: objectPath,
+      );
     } catch (e) {
       throw StorageUploadFailure(
         'Supabase upload failed: $e. '
-        'Check: 1) Bucket "$_bucket" exists and is public, '
-        '2) Storage policies allow uploads (run storage_policies_PUBLIC.sql)',
+        'Check: 1) Bucket "$_bucket" exists, '
+        '2) Storage policies allow insert/select, '
+        '3) Supabase SQL setup for signed URLs is applied.',
+      );
+    }
+  }
+
+  Future<String> createSignedDownloadUrl({
+    required String objectPath,
+    required int expiresInSeconds,
+  }) async {
+    final sb = _clientOrNull();
+    if (!isSupabaseConfigured || sb == null) {
+      throw StorageUploadFailure('Supabase is not configured.');
+    }
+    try {
+      return await sb.storage
+          .from(_bucket)
+          .createSignedUrl(objectPath, expiresInSeconds);
+    } catch (e) {
+      throw StorageUploadFailure(
+        'Could not generate signed URL: $e. '
+        'Apply Supabase storage policies and verify bucket name.',
       );
     }
   }

@@ -16,12 +16,18 @@ class BrochureCatalogService {
     required String userId,
     required String downloadUrl,
     required String fileName,
+    required String objectPath,
+    required DateTime expiresAt,
+    required int expiryHours,
   }) async {
     final fs = _firestoreOrNull();
     if (fs == null) return;
     await fs.collection('users').doc(userId).collection('brochures').add({
       'downloadUrl': downloadUrl,
       'fileName': fileName,
+      'objectPath': objectPath,
+      'expiresAt': Timestamp.fromDate(expiresAt),
+      'expiryHours': expiryHours,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }

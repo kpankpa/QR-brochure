@@ -6,6 +6,7 @@ import '../services/brochure_catalog_service.dart';
 import '../services/storage_upload_service.dart';
 import '../view_models/auth_controller.dart';
 import '../view_models/qr_brochure_view_model.dart';
+import '../views/auth/google_sign_in_screen.dart';
 import '../views/qr_brochure/qr_brochure_view.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -33,8 +34,26 @@ class HomeScreen extends StatelessWidget {
               ),
         ),
       ],
-      child: const _NoticeBinder(child: QrBrochureView()),
+      child: const _NoticeBinder(child: _AuthGate()),
     );
+  }
+}
+
+/// Routes to login or main app based on auth state.
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthController>();
+    final user = auth.user;
+
+    // Require authenticated user (no anonymous)
+    if (user == null || user.isAnonymous) {
+      return const GoogleSignInScreen();
+    }
+
+    return const QrBrochureView();
   }
 }
 

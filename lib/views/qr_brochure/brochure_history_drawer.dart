@@ -16,15 +16,6 @@ class BrochureHistoryDrawer extends StatefulWidget {
 
 class _BrochureHistoryDrawerState extends State<BrochureHistoryDrawer> {
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<AuthController>().ensureGuestSession();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final catalog = context.read<BrochureCatalogService>();

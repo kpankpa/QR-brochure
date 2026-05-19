@@ -18,7 +18,7 @@ class AuthController extends ChangeNotifier {
     final u = user;
     if (u == null) return 'Not signed in';
     if (u.isAnonymous) return 'Signed in as guest';
-    return u.email ?? 'Signed in';
+    return u.displayName ?? u.email ?? 'Signed in';
   }
 
   void startListening() {
@@ -30,35 +30,15 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  Future<void> ensureGuestSession() async {
+  Future<String?> signInWithGoogle() async {
     try {
-      await _auth.ensureSignedInAnonymouslyIfNeeded();
-      notifyListeners();
-    } catch (_) {
-      // Anonymous disabled or Firebase unavailable.
-    }
-  }
-
-  Future<String?> signInWithEmail(String email, String password) async {
-    try {
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      await _auth.signInWithGoogle();
       notifyListeners();
       return null;
     } on FirebaseAuthException catch (e) {
       return e.message ?? e.code;
-    }
-  }
-
-  Future<String?> registerWithEmail(String email, String password) async {
-    try {
-      await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      notifyListeners();
-      return null;
-    } on FirebaseAuthException catch (e) {
-      return e.message ?? e.code;
+    } catch (e) {
+      return e.toString();
     }
   }
 

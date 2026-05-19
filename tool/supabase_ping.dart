@@ -30,10 +30,7 @@ Future<void> main() async {
   }
 
   final base = url.replaceAll(RegExp(r'/+$'), '');
-  final headers = {
-    'apikey': key,
-    'Authorization': 'Bearer $key',
-  };
+  final headers = {'apikey': key, 'Authorization': 'Bearer $key'};
 
   print('Supabase URL: $base');
 
@@ -48,10 +45,7 @@ Future<void> main() async {
 
   int authCode;
   try {
-    authCode = await _httpStatus(
-      Uri.parse('$base/auth/v1/health'),
-      headers,
-    );
+    authCode = await _httpStatus(Uri.parse('$base/auth/v1/health'), headers);
   } on SocketException catch (e) {
     stderr.writeln('Network error: ${e.message}');
     if (host.endsWith('supabase.co') || host.contains('supabase')) {
@@ -157,11 +151,14 @@ Future<void> _printBuckets(String base, Map<String, String> headers) async {
     if (res.statusCode != HttpStatus.ok) return;
     try {
       final list = jsonDecode(body) as List<dynamic>;
-      final names = list
-          .map((e) => (e as Map<String, dynamic>)['name'] as String?)
-          .whereType<String>()
-          .toList();
-      print('  buckets: ${names.isEmpty ? '(none visible)' : names.join(', ')}');
+      final names =
+          list
+              .map((e) => (e as Map<String, dynamic>)['name'] as String?)
+              .whereType<String>()
+              .toList();
+      print(
+        '  buckets: ${names.isEmpty ? '(none visible)' : names.join(', ')}',
+      );
     } catch (_) {
       print('  (could not parse bucket list)');
     }
