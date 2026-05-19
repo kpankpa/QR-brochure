@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 
 Future<bool> saveQrPng(Uint8List bytes, String suggestedName) async {
-  final path = await FilePicker.platform.saveFile(
+  final path = await FilePicker.saveFile(
     dialogTitle: 'Save QR code',
     fileName: suggestedName,
     type: FileType.custom,
