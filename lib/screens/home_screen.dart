@@ -48,6 +48,11 @@ class _AuthGate extends StatelessWidget {
     final auth = context.watch<AuthController>();
     final user = auth.user;
 
+    // Allow bypass for local testing only.
+    if (auth.devModeBypass) {
+      return const QrBrochureView();
+    }
+
     // Require authenticated user (no anonymous)
     if (user == null || user.isAnonymous) {
       return const GoogleSignInScreen();

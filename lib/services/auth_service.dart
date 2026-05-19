@@ -1,13 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
 /// Thin wrapper around Firebase Auth with safe access when Firebase is absent (e.g. some tests).
 class AuthService {
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    // Web client ID is automatically configured by Firebase on web
-    // For Android/iOS, use google-services.json/GoogleService-Info.plist
-    scopes: ['email', 'profile'],
-  );
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
 
   FirebaseAuth? _authOrNull() {
     try {
@@ -35,6 +32,15 @@ class AuthService {
     }
 
     try {
+      if (kIsWeb) {
+        final provider =
+            GoogleAuthProvider()
+              ..addScope('email')
+              ..addScope('profile');
+        await auth.signInWithPopup(provider);
+        return;
+      }
+
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         throw FirebaseAuthException(

@@ -333,6 +333,17 @@ class _SettingsTab extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 10),
+        Card(
+          child: SwitchListTile.adaptive(
+            title: const Text('Developer mode (bypass login)'),
+            subtitle: const Text(
+              'Testing only. Turn off before production use.',
+            ),
+            value: auth.devModeBypass,
+            onChanged: auth.setDevModeBypass,
+          ),
+        ),
       ],
     );
   }

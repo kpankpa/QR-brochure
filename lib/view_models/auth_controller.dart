@@ -9,10 +9,12 @@ class AuthController extends ChangeNotifier {
   AuthController(this._auth);
 
   final AuthService _auth;
+  bool _devModeBypass = false;
 
   StreamSubscription<User?>? _subscription;
 
   User? get user => _auth.currentUser;
+  bool get devModeBypass => _devModeBypass;
 
   String get accountSummary {
     final u = user;
@@ -44,6 +46,12 @@ class AuthController extends ChangeNotifier {
 
   Future<void> signOut() async {
     await _auth.signOut();
+    notifyListeners();
+  }
+
+  void setDevModeBypass(bool enabled) {
+    if (_devModeBypass == enabled) return;
+    _devModeBypass = enabled;
     notifyListeners();
   }
 
