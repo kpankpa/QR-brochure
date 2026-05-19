@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "857877212792",
+    "project_id": "wbc-qr",
+    "storage_bucket": "wbc-qr.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:857877212792:android:273ec1842084d4f56c478d",
+        "android_client_info": {
+          "package_name": "com.qrbrochure.app.qr_brochure"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA57JM1EDcyMuZAqxm3nzOqngTHyMAO3SA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
