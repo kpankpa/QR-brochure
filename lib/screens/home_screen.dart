@@ -48,11 +48,6 @@ class _AuthGate extends StatelessWidget {
     final auth = context.watch<AuthController>();
     final user = auth.user;
 
-    // Allow bypass for local testing only.
-    if (auth.devModeBypass) {
-      return const QrBrochureView();
-    }
-
     // Require authenticated user (no anonymous)
     if (user == null || user.isAnonymous) {
       return const GoogleSignInScreen();
@@ -103,7 +98,18 @@ class FirebaseSetupScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('QR Brochure')),
+      appBar: AppBar(
+        title: Image.asset(
+          'assets/env/whitebeamconcept.png',
+          height: 28,
+          fit: BoxFit.contain,
+          errorBuilder:
+              (_, __, ___) => const Text(
+                'WBC-QR',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Center(

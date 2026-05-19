@@ -45,7 +45,7 @@ class QrBrochureApp extends StatelessWidget {
     );
 
     return MaterialApp(
-      title: 'QR Brochure',
+      title: 'WBC-QR',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: scheme,

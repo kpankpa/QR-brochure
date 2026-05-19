@@ -1,11 +1,11 @@
 {
-    "name": "SwiftShare - QR Code Generator",
-    "short_name": "SwiftShare",
+    "name": "WBC-QR",
+    "short_name": "WBC-QR",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#2E6AE6",
     "theme_color": "#2E6AE6",
-    "description": "Generate QR codes for your files and links. Sign in with Google to manage your uploads.",
+    "description": "WBC-QR: Generate QR codes for your files and links.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

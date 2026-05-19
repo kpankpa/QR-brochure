@@ -37,7 +37,6 @@ class _GoogleSignInScreenState extends State<GoogleSignInScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final auth = context.watch<AuthController>();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
@@ -55,14 +54,20 @@ class _GoogleSignInScreenState extends State<GoogleSignInScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Icon(
-                          Icons.qr_code_scanner_rounded,
-                          size: 80,
-                          color: scheme.primary,
+                        Image.asset(
+                          'assets/env/whitebeamconcept.png',
+                          height: 84,
+                          fit: BoxFit.contain,
+                          errorBuilder:
+                              (_, __, ___) => Icon(
+                                Icons.qr_code_scanner_rounded,
+                                size: 80,
+                                color: scheme.primary,
+                              ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 18),
                         Text(
-                          'SwiftShare',
+                          'WBC-QR',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.displaySmall?.copyWith(
                             fontWeight: FontWeight.w700,
@@ -122,19 +127,6 @@ class _GoogleSignInScreenState extends State<GoogleSignInScreen> {
                                   backgroundColor: scheme.primary,
                                   foregroundColor: scheme.onPrimary,
                                 ),
-                              ),
-                              const SizedBox(height: 12),
-                              SwitchListTile.adaptive(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text(
-                                  'Developer mode (bypass login)',
-                                ),
-                                subtitle: const Text(
-                                  'Testing only. Lets you enter the app without Google sign-in.',
-                                ),
-                                value: auth.devModeBypass,
-                                onChanged:
-                                    _isLoading ? null : auth.setDevModeBypass,
                               ),
                               if (_errorMessage != null) ...[
                                 const SizedBox(height: 16),

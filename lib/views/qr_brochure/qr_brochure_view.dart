@@ -25,7 +25,16 @@ class _QrBrochureViewState extends State<QrBrochureView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SwiftShare'),
+        title: Image.asset(
+          'assets/env/whitebeamconcept.png',
+          height: 30,
+          fit: BoxFit.contain,
+          errorBuilder:
+              (_, __, ___) => const Text(
+                'WBC-QR',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+        ),
         actions: [
           Consumer<AuthController>(
             builder: (context, auth, _) {
@@ -99,7 +108,7 @@ class _QrBrochureViewState extends State<QrBrochureView> {
             onPressed:
                 () => showAboutDialog(
                   context: context,
-                  applicationName: 'QR Brochure',
+                  applicationName: 'WBC-QR',
                   applicationLegalese:
                       'Create QR codes that open links, PDFs, or images.',
                 ),
@@ -331,17 +340,6 @@ class _SettingsTab extends StatelessWidget {
             subtitle: const Text(
               'Your files and QR codes are private and linked to your Google account.',
             ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Card(
-          child: SwitchListTile.adaptive(
-            title: const Text('Developer mode (bypass login)'),
-            subtitle: const Text(
-              'Testing only. Turn off before production use.',
-            ),
-            value: auth.devModeBypass,
-            onChanged: auth.setDevModeBypass,
           ),
         ),
       ],
