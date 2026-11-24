@@ -75,7 +75,9 @@ service cloud.firestore {
         // Older snapshots had no `id`; allow the one-time migration while
         // keeping `id` immutable once present.
         && (!('id' in resource.data) || request.resource.data.id == resource.data.id)
-        && request.resource.data.slug == resource.data.slug
+        // Legacy snapshots may also lack a slug field. The document path already
+        // fixes the slug, so only check it when present.
+        && (!('slug' in resource.data) || resource.data.slug == slug)
         && (!('isPublished' in resource.data) || resource.data.isPublished == true);
 
       // Idempotent: deleting an already-missing public snapshot must not abort
