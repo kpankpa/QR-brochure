@@ -321,6 +321,8 @@ class DigitalCardService {
     final publicRef = _publicRef(slug);
     final publicSnap = await publicRef.get();
     final publicData = published.toMap();
+    // Case-insensitive lookup key for legacy mixed-case links.
+    publicData['slugLower'] = slug.toLowerCase();
     if (publicSnap.exists && publicSnap.data()?['createdAt'] != null) {
       publicData['createdAt'] = publicSnap.data()!['createdAt'];
     } else {
@@ -404,13 +406,55 @@ class DigitalCardService {
     return value is String && _validSlug(value) ? value : '';
   }
 
+  /// Resolves a public card from an exact slug, a lower-cased variant, a
+  /// normalised `slugLower` field, or a case-insensitive document-id match.
+  ///
+  /// Published slugs used to be generated with mixed-case Firestore id tokens,
+  /// so the same card can be reached through several URL spellings. Never show
+  /// "unavailable" just because the casing changed.
   Future<DigitalCard?> getPublicCard(String slug) async {
     final fs = _store();
-    if (fs == null || !_validSlug(slug)) return null;
-    final snap = await _publicRef(slug).get();
+    final requested = slug.trim();
+    if (fs == null || !_validSlug(requested)) return null;
+    final lower = requested.toLowerCase();
+
+    DocumentSnapshot<Map<String, dynamic>> snap =
+        await _publicRef(requested).get();
+
+    if (!snap.exists && lower != requested) {
+      snap = await _publicRef(lower).get();
+    }
+
+    if (!snap.exists) {
+      try {
+        final query =
+            await fs
+                .collection('publicCards')
+                .where('slugLower', isEqualTo: lower)
+                .limit(1)
+                .get();
+        if (query.docs.isNotEmpty) snap = query.docs.first;
+      } catch (_) {
+        // Older snapshots have no slugLower; the final fallback handles them.
+      }
+    }
+
+    if (!snap.exists) {
+      try {
+        final all = await fs.collection('publicCards').get();
+        for (final doc in all.docs) {
+          if (doc.id.toLowerCase() == lower) {
+            snap = doc;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
     if (!snap.exists) return null;
-    final card = DigitalCard.fromFirestore(snap);
-    return card.isPublished ? card : null;
+    // A legacy snapshot with no isPublished field is still a published card.
+    if (snap.data()?['isPublished'] == false) return null;
+    return DigitalCard.fromFirestore(snap);
   }
 
   /// Best-effort analytics. Never let analytics break the card view.
