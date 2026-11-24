@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../services/auth_service.dart';
-import '../services/brochure_catalog_service.dart';
-import '../services/storage_upload_service.dart';
 import '../view_models/auth_controller.dart';
 import '../view_models/qr_brochure_view_model.dart';
 import '../views/auth/google_sign_in_screen.dart';
@@ -19,23 +16,7 @@ class HomeScreen extends StatelessWidget {
     if (firebaseInitError != null) {
       return FirebaseSetupScaffold(error: firebaseInitError);
     }
-    return MultiProvider(
-      providers: [
-        Provider(create: (_) => AuthService()),
-        Provider(create: (_) => BrochureCatalogService()),
-        ChangeNotifierProvider(
-          create: (context) => AuthController(context.read<AuthService>()),
-        ),
-        ChangeNotifierProvider(
-          create:
-              (context) => QrBrochureViewModel(
-                storageUploadService: StorageUploadService(),
-                brochureCatalogService: context.read<BrochureCatalogService>(),
-              ),
-        ),
-      ],
-      child: const _NoticeBinder(child: _AuthGate()),
-    );
+    return const _NoticeBinder(child: _AuthGate());
   }
 }
 
@@ -68,14 +49,18 @@ class _NoticeBinder extends StatefulWidget {
 }
 
 class _NoticeBinderState extends State<_NoticeBinder> {
+  late final QrBrochureViewModel _vm;
+  late final AuthController _auth;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<QrBrochureViewModel>().bindUserNotice(_showSnack);
-      context.read<AuthController>().startListening();
-    });
+    _vm = context.read<QrBrochureViewModel>();
+    _auth = context.read<AuthController>();
+    // Bind immediately so early notices are not lost. Reading providers in
+    // initState is safe and does not depend on a post-frame callback.
+    _vm.bindUserNotice(_showSnack);
+    _auth.startListening();
   }
 
   void _showSnack(String message) {
@@ -83,6 +68,12 @@ class _NoticeBinderState extends State<_NoticeBinder> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  void dispose() {
+    _vm.unbindUserNotice();
+    super.dispose();
   }
 
   @override

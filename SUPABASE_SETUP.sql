@@ -1,47 +1,46 @@
--- QUICK SETUP: Copy and paste this entire file into Supabase SQL Editor
--- Dashboard: https://supabase.com/dashboard/project/qjaavrisvfiqhqklfebn/sql/new
--- This config enables expiring signed URLs (private bucket behavior).
+-- Canonical QR-bucket setup. This file is kept for compatibility; the
+-- maintained copy is supabase/storage_setup.sql.
+-- The bucket is PRIVATE so expiring signed URLs are the only way to read files.
 
--- Step 1: Ensure bucket exists and is private
-insert into storage.buckets (id, name, public)
-values ('QR-bucket', 'QR-bucket', false)
-on conflict (id) do update set public = excluded.public;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'QR-bucket',
+  'QR-bucket',
+  false,
+  25 * 1024 * 1024,
+  array['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif']::text[]
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
--- Step 2: Drop any existing policies to start fresh
 drop policy if exists "brochures public read" on storage.objects;
 drop policy if exists "brochures insert own folder" on storage.objects;
 drop policy if exists "brochures update own folder" on storage.objects;
 drop policy if exists "brochures delete own folder" on storage.objects;
 drop policy if exists "QR-bucket public read" on storage.objects;
-drop policy if exists "QR-bucket insert own folder" on storage.objects;
-drop policy if exists "QR-bucket update own folder" on storage.objects;
-drop policy if exists "QR-bucket delete own folder" on storage.objects;
+drop policy if exists "QR-bucket insert" on storage.objects;
+drop policy if exists "QR-bucket update" on storage.objects;
+drop policy if exists "QR-bucket delete" on storage.objects;
+drop policy if exists "QR-bucket public insert" on storage.objects;
+drop policy if exists "QR-bucket public update" on storage.objects;
+drop policy if exists "QR-bucket public delete" on storage.objects;
 drop policy if exists "QR-bucket signed select" on storage.objects;
 drop policy if exists "QR-bucket insert all" on storage.objects;
 drop policy if exists "QR-bucket update all" on storage.objects;
 drop policy if exists "QR-bucket delete all" on storage.objects;
 
--- Step 3: Create policies for signed URL workflow
-
--- SELECT policy is required so the client can create signed URLs.
--- Bucket remains private, so scanners need a signed URL to download.
 create policy "QR-bucket signed select"
-on storage.objects for select
-using (bucket_id = 'QR-bucket');
+on storage.objects for select to public
+using (
+  bucket_id = 'QR-bucket'
+  and storage.allow_only_operation('storage.object.sign')
+);
 
--- Allow uploads/updates/deletes from client app.
-create policy "QR-bucket insert all"
-on storage.objects for insert
-with check (bucket_id = 'QR-bucket');
-
-create policy "QR-bucket update all"
-on storage.objects for update
-using (bucket_id = 'QR-bucket')
-with check (bucket_id = 'QR-bucket');
-
-create policy "QR-bucket delete all"
-on storage.objects for delete
-using (bucket_id = 'QR-bucket');
-
--- DONE! Close this tab and test your app.
--- Note: Firebase Auth tracks ownership in Firestore; Supabase serves expiring signed links.
+create policy "QR-bucket insert"
+on storage.objects for insert to public
+with check (
+  bucket_id = 'QR-bucket'
+  and lower(storage.extension(name)) in ('pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif')
+);

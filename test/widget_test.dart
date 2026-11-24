@@ -8,7 +8,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const QrBrochureApp(firebaseInitError: null));
 
-    expect(find.textContaining('What should the QR code open'), findsOneWidget);
+    expect(find.textContaining('Sign in to continue'), findsOneWidget);
   });
 
   testWidgets('home shows setup hint when Firebase failed', (

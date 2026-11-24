@@ -91,6 +91,8 @@ class FileSourcePanel extends StatelessWidget {
             ],
             selected: {viewModel.expiryPreset},
             onSelectionChanged: (set) async {
+              // Flutter passes an empty set when the active segment is tapped.
+              if (set.isEmpty) return;
               final selected = set.first;
               if (selected == ExpiryPreset.custom) {
                 final days = await _showCustomDaysDialog(context);
@@ -151,15 +153,25 @@ class FileSourcePanel extends StatelessWidget {
 
   Future<int?> _showCustomDaysDialog(BuildContext context) async {
     final controller = TextEditingController(text: '2');
-    return showDialog<int>(
+    final result = showDialog<int>(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Custom expiry'),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Days (1-30)'),
+          content: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              final days = int.tryParse(value.text.trim());
+              final valid = days != null && days >= 1 && days <= 7;
+              return TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Days (1-7)',
+                  errorText: valid ? null : 'Choose 1 to 7 days',
+                ),
+              );
+            },
           ),
           actions: [
             TextButton(
@@ -169,7 +181,7 @@ class FileSourcePanel extends StatelessWidget {
             FilledButton(
               onPressed: () {
                 final days = int.tryParse(controller.text.trim());
-                if (days == null || days < 1 || days > 30) return;
+                if (days == null || days < 1 || days > 7) return;
                 Navigator.of(context).pop(days);
               },
               child: const Text('Apply'),
@@ -178,5 +190,6 @@ class FileSourcePanel extends StatelessWidget {
         );
       },
     );
+    return result.whenComplete(controller.dispose);
   }
 }

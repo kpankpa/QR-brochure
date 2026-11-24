@@ -45,10 +45,10 @@
 **Steps**:
 1. Click this link: https://supabase.com/dashboard/project/qjaavrisvfiqhqklfebn/storage/buckets
 2. Find bucket named **"QR-bucket"**
-3. Verify it shows **"Public"** label
+3. Verify it shows **"Private"** label (expiring signed URLs are used)
 4. If not found, click "New bucket":
    - Name: `QR-bucket`
-   - Toggle "Public bucket" to ON
+   - Leave "Public bucket" OFF
    - Click "Create bucket"
 
 ✅ **Takes 30 seconds**

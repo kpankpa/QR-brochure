@@ -1,48 +1,46 @@
--- Supabase Storage policies for bucket "QR-bucket" (matches your dashboard).
--- Run in: Supabase → SQL Editor → New query → Run
---
--- Prereqs:
--- 1) Bucket "QR-bucket" already exists (Storage UI).
--- 2) Authentication → Providers → Anonymous → ON.
+-- Canonical QR-bucket setup. This file is kept for compatibility; the
+-- maintained copy is supabase/storage_setup.sql.
+-- The bucket is PRIVATE so expiring signed URLs are the only way to read files.
 
-insert into storage.buckets (id, name, public)
-values ('QR-bucket', 'QR-bucket', true)
-on conflict (id) do update set public = excluded.public;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'QR-bucket',
+  'QR-bucket',
+  false,
+  25 * 1024 * 1024,
+  array['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif']::text[]
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "brochures public read" on storage.objects;
 drop policy if exists "brochures insert own folder" on storage.objects;
 drop policy if exists "brochures update own folder" on storage.objects;
 drop policy if exists "brochures delete own folder" on storage.objects;
 drop policy if exists "QR-bucket public read" on storage.objects;
-drop policy if exists "QR-bucket insert own folder" on storage.objects;
-drop policy if exists "QR-bucket update own folder" on storage.objects;
-drop policy if exists "QR-bucket delete own folder" on storage.objects;
+drop policy if exists "QR-bucket insert" on storage.objects;
+drop policy if exists "QR-bucket update" on storage.objects;
+drop policy if exists "QR-bucket delete" on storage.objects;
+drop policy if exists "QR-bucket public insert" on storage.objects;
+drop policy if exists "QR-bucket public update" on storage.objects;
+drop policy if exists "QR-bucket public delete" on storage.objects;
+drop policy if exists "QR-bucket signed select" on storage.objects;
+drop policy if exists "QR-bucket insert all" on storage.objects;
+drop policy if exists "QR-bucket update all" on storage.objects;
+drop policy if exists "QR-bucket delete all" on storage.objects;
 
-create policy "QR-bucket public read"
-on storage.objects for select
-using (bucket_id = 'QR-bucket');
-
-create policy "QR-bucket insert own folder"
-on storage.objects for insert to authenticated
-with check (
-  bucket_id = 'QR-bucket'
-  and (storage.foldername(name))[1] = auth.uid()::text
-);
-
-create policy "QR-bucket update own folder"
-on storage.objects for update to authenticated
+create policy "QR-bucket signed select"
+on storage.objects for select to public
 using (
   bucket_id = 'QR-bucket'
-  and (storage.foldername(name))[1] = auth.uid()::text
-)
-with check (
-  bucket_id = 'QR-bucket'
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and storage.allow_only_operation('storage.object.sign')
 );
 
-create policy "QR-bucket delete own folder"
-on storage.objects for delete to authenticated
-using (
+create policy "QR-bucket insert"
+on storage.objects for insert to public
+with check (
   bucket_id = 'QR-bucket'
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and lower(storage.extension(name)) in ('pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif')
 );

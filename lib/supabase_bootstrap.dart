@@ -3,17 +3,24 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 String _resolvedUrl = '';
 String _resolvedAnonKey = '';
-String _resolvedBucket = 'brochures';
+String _resolvedBucket = 'QR-bucket';
+String _resolvedCardAssetsBucket = 'card-assets';
 
-/// Supabase project URL after [initSupabase] runs (`.env` asset + `--dart-define`).
+/// Supabase project URL after [initSupabase] runs.
+///
+/// Firebase Remote Config is checked first, then `--dart-define`, then the
+/// optional `.env` asset for local development.
 String get kSupabaseUrl => _resolvedUrl;
 
 /// Publishable (`sb_publishable_…`) or legacy anon JWT — passed to
 /// [Supabase.initialize] as `anonKey`.
 String get kSupabaseAnonKey => _resolvedAnonKey;
 
-/// Storage bucket id (default `brochures`).
+/// Storage bucket id (default `QR-bucket`).
 String get kSupabaseStorageBucket => _resolvedBucket;
+
+/// Public bucket for digital card photos and logos (default `card-assets`).
+String get kSupabaseCardAssetsBucket => _resolvedCardAssetsBucket;
 
 bool get isSupabaseConfigured =>
     _resolvedUrl.isNotEmpty && _resolvedAnonKey.isNotEmpty;
@@ -34,35 +41,42 @@ Map<String, String> _dartDefineMerge() {
     'SUPABASE_STORAGE_BUCKET',
     const String.fromEnvironment('SUPABASE_STORAGE_BUCKET'),
   );
+  put(
+    'SUPABASE_CARD_ASSETS_BUCKET',
+    const String.fromEnvironment('SUPABASE_CARD_ASSETS_BUCKET'),
+  );
   return m;
 }
 
-/// Call after [WidgetsFlutterBinding.ensureInitialized]. Safe no-op if env missing.
+/// Call after Firebase is initialized. Safe no-op if config is missing.
 ///
-/// Loads optional asset `.env` if present (list `- .env` under `flutter: assets:`).
-/// Non-empty `--dart-define` entries override the same keys from `.env`.
-Future<void> initSupabase() async {
+/// [remoteConfig] should come from `RemoteConfigService.loadSupabaseConfig()`.
+/// Values are resolved in this order: Remote Config → `--dart-define` → `.env`.
+Future<void> initSupabase({Map<String, String>? remoteConfig}) async {
   await dotenv.load(
     fileName: '.env',
     isOptional: true,
     mergeWith: _dartDefineMerge(),
   );
 
-  _resolvedUrl = dotenv.maybeGet('SUPABASE_URL') ?? '';
-
-  final publishable = dotenv.maybeGet('SUPABASE_PUBLISHABLE_KEY');
-  final anon = dotenv.maybeGet('SUPABASE_ANON_KEY');
-  if (publishable != null && publishable.isNotEmpty) {
-    _resolvedAnonKey = publishable;
-  } else if (anon != null && anon.isNotEmpty) {
-    _resolvedAnonKey = anon;
-  } else {
-    _resolvedAnonKey = '';
+  String read(String key) {
+    final fromRemote = remoteConfig?[key]?.trim();
+    if (fromRemote != null && fromRemote.isNotEmpty) return fromRemote;
+    return dotenv.maybeGet(key)?.trim() ?? '';
   }
 
-  final bucketRaw = dotenv.maybeGet('SUPABASE_STORAGE_BUCKET');
-  _resolvedBucket =
-      bucketRaw != null && bucketRaw.isNotEmpty ? bucketRaw : 'brochures';
+  _resolvedUrl = read('SUPABASE_URL');
+
+  final publishable = read('SUPABASE_PUBLISHABLE_KEY');
+  final anon = read('SUPABASE_ANON_KEY');
+  _resolvedAnonKey = publishable.isNotEmpty ? publishable : anon;
+
+  final bucketRaw = read('SUPABASE_STORAGE_BUCKET');
+  _resolvedBucket = bucketRaw.isNotEmpty ? bucketRaw : 'QR-bucket';
+
+  final cardBucketRaw = read('SUPABASE_CARD_ASSETS_BUCKET');
+  _resolvedCardAssetsBucket =
+      cardBucketRaw.isNotEmpty ? cardBucketRaw : 'card-assets';
 
   if (!isSupabaseConfigured) return;
   await Supabase.initialize(url: _resolvedUrl, anonKey: _resolvedAnonKey);

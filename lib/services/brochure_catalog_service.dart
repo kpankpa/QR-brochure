@@ -35,7 +35,7 @@ class BrochureCatalogService {
   Stream<List<BrochureRecord>> watchBrochures(String userId) {
     final fs = _firestoreOrNull();
     if (fs == null) {
-      return const Stream<List<BrochureRecord>>.empty();
+      return Stream<List<BrochureRecord>>.value(<BrochureRecord>[]);
     }
     return fs
         .collection('users')

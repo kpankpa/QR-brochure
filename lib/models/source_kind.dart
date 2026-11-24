@@ -1,1 +1,1 @@
-enum SourceKind { link, file }
+enum SourceKind { link, file, contact }

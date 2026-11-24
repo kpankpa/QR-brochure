@@ -33,6 +33,32 @@
 
   <title>WBC-QR</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    Clear any previously installed Flutter service worker so users always get
+    the latest deployed build. This app is rebuilt frequently and does not need
+    offline caching; the web build also uses --pwa-strategy=none.
+  -->
+  <script>
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      var flag = 'wbc-qr-service-worker-cleared';
+      try {
+        if (sessionStorage.getItem(flag)) return;
+      } catch (e) {}
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        if (!registrations.length) return;
+        Promise.all(registrations.map(function (r) { return r.unregister(); }))
+          .then(function () {
+            try {
+              sessionStorage.setItem(flag, '1');
+            } catch (e) {}
+            window.location.reload();
+          })
+          .catch(function () {});
+      }).catch(function () {});
+    })();
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

@@ -6,6 +6,8 @@ import '../../models/source_kind.dart';
 import '../../services/brochure_catalog_service.dart';
 import '../../view_models/auth_controller.dart';
 import '../../view_models/qr_brochure_view_model.dart';
+import '../cards/cards_tab.dart';
+import 'contact_source_panel.dart';
 import 'file_source_panel.dart';
 import 'link_source_panel.dart';
 import 'qr_preview_card.dart';
@@ -58,11 +60,22 @@ class _QrBrochureViewState extends State<QrBrochureView> {
                         : const Icon(Icons.account_circle_outlined),
                 onSelected: (value) async {
                   if (value == 'out') {
-                    final messenger = ScaffoldMessenger.of(context);
-                    await auth.signOut();
-                    if (context.mounted) {
-                      messenger.showSnackBar(
-                        const SnackBar(content: Text('Signed out')),
+                    try {
+                      final error = await auth.signOut();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            error == null
+                                ? 'Signed out'
+                                : 'Sign out failed: $error',
+                          ),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Sign out failed: $e')),
                       );
                     }
                   }
@@ -110,7 +123,7 @@ class _QrBrochureViewState extends State<QrBrochureView> {
                   context: context,
                   applicationName: 'WBC-QR',
                   applicationLegalese:
-                      'Create QR codes that open links, PDFs, or images.',
+                      'Create QR codes for links, files and digital business cards.',
                 ),
           ),
         ],
@@ -122,6 +135,10 @@ class _QrBrochureViewState extends State<QrBrochureView> {
           NavigationDestination(
             icon: Icon(Icons.upload_rounded),
             label: 'Upload',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.contacts_outlined),
+            label: 'Cards',
           ),
           NavigationDestination(
             icon: Icon(Icons.history_rounded),
@@ -152,7 +169,11 @@ class _QrBrochureViewState extends State<QrBrochureView> {
                           _tabIndex == 0
                               ? _UploadTab(vm: vm)
                               : _tabIndex == 1
-                              ? const _HistoryTab()
+                              ? const CardsTab()
+                              : _tabIndex == 2
+                              ? _HistoryTab(
+                                onUse: () => setState(() => _tabIndex = 0),
+                              )
                               : const _SettingsTab(),
                     ),
                   ),
@@ -187,7 +208,7 @@ class _UploadTab extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Upload any file and generate a secure temporary QR code for instant sharing.',
+          'Share a link, a secure temporary file, or a professional digital business card.',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: scheme.onSurfaceVariant,
           ),
@@ -210,6 +231,11 @@ class _UploadTab extends StatelessWidget {
               label: Text('File'),
               icon: Icon(Icons.upload_file_rounded),
             ),
+            ButtonSegment(
+              value: SourceKind.contact,
+              label: Text('Contact'),
+              icon: Icon(Icons.contacts_outlined),
+            ),
           ],
           selected: {vm.source},
           onSelectionChanged: vm.setSource,
@@ -220,7 +246,12 @@ class _UploadTab extends StatelessWidget {
           child:
               vm.source == SourceKind.link
                   ? LinkSourcePanel(key: const ValueKey('link'), viewModel: vm)
-                  : FileSourcePanel(key: const ValueKey('file'), viewModel: vm),
+                  : vm.source == SourceKind.file
+                  ? FileSourcePanel(key: const ValueKey('file'), viewModel: vm)
+                  : ContactSourcePanel(
+                    key: const ValueKey('contact'),
+                    viewModel: vm,
+                  ),
         ),
         const SizedBox(height: 22),
         Text(
@@ -237,7 +268,9 @@ class _UploadTab extends StatelessWidget {
 }
 
 class _HistoryTab extends StatelessWidget {
-  const _HistoryTab();
+  const _HistoryTab({required this.onUse});
+
+  final VoidCallback onUse;
 
   @override
   Widget build(BuildContext context) {
@@ -263,6 +296,11 @@ class _HistoryTab extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.hasError) return Center(child: Text('${snapshot.error}'));
         if (!snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            return const Center(
+              child: Text('History is unavailable right now.'),
+            );
+          }
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -305,7 +343,14 @@ class _HistoryTab extends StatelessWidget {
                 trailing: IconButton(
                   tooltip: 'Use this QR',
                   icon: const Icon(Icons.open_in_new_rounded),
-                  onPressed: () => vm.useBrochureFromHistory(r),
+                  onPressed: () async {
+                    final loaded = await vm.useBrochureFromHistory(r);
+                    if (!loaded || !context.mounted) return;
+                    onUse();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('QR loaded in Upload tab')),
+                    );
+                  },
                 ),
               ),
             );

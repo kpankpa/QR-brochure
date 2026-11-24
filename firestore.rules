@@ -7,40 +7,95 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function: Check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function: Check if user owns the document
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function validSlug(value) {
+      return value is string
+        && value.size() >= 1
+        && value.size() <= 40
+        && value.matches('^[a-z0-9-]+$');
+    }
+
+    function publicCardPayload(slug) {
+      return request.resource.data.keys().hasAll([
+          'id', 'ownerId', 'slug', 'isPublished', 'fullName'
+        ])
+        && request.resource.data.id is string
+        && request.resource.data.ownerId is string
+        && validSlug(request.resource.data.slug)
+        && request.resource.data.slug == slug
+        && request.resource.data.isPublished == true
+        && request.resource.data.fullName is string;
+    }
+
     // Per-user brochure metadata (upload history)
-    // Only authenticated users can read/write their own brochures
     match /users/{userId}/brochures/{docId} {
-      // Users can only access their own brochures
       allow read: if isOwner(userId);
-      
-      // Users can only create/update their own brochures
-      allow create: if isOwner(userId) 
-                    && request.resource.data.keys().hasAll(['downloadUrl', 'fileName'])
-                    && request.resource.data.downloadUrl is string
-                    && request.resource.data.fileName is string;
-      
+
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['downloadUrl', 'fileName'])
+        && request.resource.data.downloadUrl is string
+        && request.resource.data.fileName is string;
+
       allow update: if isOwner(userId);
-      
-      // Users can delete their own brochures
       allow delete: if isOwner(userId);
     }
 
-    // Optional: Admin collection (if needed)
-    match /admin/{document=**} {
-      allow read, write: if false; // Disable by default
+    // Digital business cards — private editor documents
+    match /users/{userId}/cards/{cardId} {
+      allow read, write: if isOwner(userId);
     }
 
-    // Deny all other access by default
+    // Public, published card snapshots — readable by anyone with the link.
+    match /publicCards/{slug} {
+      // Signed-in clients probe for slug availability; anonymous scanners may
+      // read a published snapshot only.
+      allow get: if isAuthenticated()
+        || ('isPublished' in resource.data && resource.data.isPublished == true);
+      allow list: if false;
+
+      allow create: if isAuthenticated()
+        && validSlug(slug)
+        && publicCardPayload(slug)
+        && request.resource.data.ownerId == request.auth.uid;
+
+      // Ownership is immutable on update. Without the existing-owner check any
+      // signed-in user could overwrite somebody else's published card.
+      allow update: if isAuthenticated()
+        && validSlug(slug)
+        && publicCardPayload(slug)
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.slug == resource.data.slug
+        && resource.data.isPublished == true;
+
+      // Idempotent: deleting an already-missing public snapshot must not abort
+      // a private card deletion batch.
+      allow delete: if isAuthenticated()
+        && (resource == null || resource.data.ownerId == request.auth.uid);
+    }
+
+    // Lightweight scan events. No personal data is stored in these events.
+    match /publicCards/{slug}/events/{eventId} {
+      allow read: if false;
+      allow create: if request.resource.data.keys().hasOnly(['type', 'createdAt'])
+        && request.resource.data.type is string
+        && request.resource.data.type in ['view', 'save', 'share']
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /admin/{document=**} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

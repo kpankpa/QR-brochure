@@ -42,9 +42,14 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  Future<void> signOut() async {
-    await _auth.signOut();
-    notifyListeners();
+  Future<String?> signOut() async {
+    try {
+      await _auth.signOut();
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
   }
 
   @override
