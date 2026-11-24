@@ -54,7 +54,8 @@ class DigitalCardService {
   /// Deterministic slug: the unique Firestore id prevents cross-user races
   /// without a check-then-write window.
   static String slugForCard(String fullName, String cardId) {
-    final tokenSource = cardId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    final tokenSource =
+        cardId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
     final token =
         tokenSource.isEmpty
             ? 'card'
@@ -79,8 +80,10 @@ class DigitalCardService {
     return short.isEmpty ? 'card' : 'card-$short';
   }
 
+  // Legacy published cards can contain uppercase id tokens, so accept both
+  // cases when reading/validating existing links. New slugs are lowercased.
   static bool _validSlug(String value) =>
-      RegExp(r'^[a-z0-9-]{1,40}$').hasMatch(value);
+      RegExp(r'^[a-zA-Z0-9-]{1,40}$').hasMatch(value);
 
   DocumentReference<Map<String, dynamic>> _privateRef(
     String uid,
