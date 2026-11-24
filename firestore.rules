@@ -72,9 +72,11 @@ service cloud.firestore {
         && publicCardPayload(slug)
         && resource.data.ownerId == request.auth.uid
         && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.id == resource.data.id
+        // Older snapshots had no `id`; allow the one-time migration while
+        // keeping `id` immutable once present.
+        && (!('id' in resource.data) || request.resource.data.id == resource.data.id)
         && request.resource.data.slug == resource.data.slug
-        && resource.data.isPublished == true;
+        && (!('isPublished' in resource.data) || resource.data.isPublished == true);
 
       // Idempotent: deleting an already-missing public snapshot must not abort
       // a private card deletion batch.
