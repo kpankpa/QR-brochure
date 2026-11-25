@@ -1,8 +1,8 @@
 rules_version = '2';
 
-// Firestore Security Rules - Firebase Auth Only
-// Public card pages are readable by anyone with the link. Only the signed-in
-// owner may create, update or delete their private drafts and public snapshots.
+// Firestore Security Rules - allowlisted Google accounts only.
+// Public card pages are readable by anyone with the link. Only an allowlisted
+// signed-in owner may create, update or delete drafts or public snapshots.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -11,8 +11,21 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Only these Google accounts may create, edit or delete anything.
+    // Keep in sync with lib/config/editor_allowlist.dart.
+    function allowedEditor() {
+      return signedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email.lower() in [
+          'whitebeamdesign@gmail.com',
+          'kaylonprince@gmail.com'
+        ];
+    }
+
     function isOwner(userId) {
-      return signedIn() && request.auth.uid == userId;
+      return allowedEditor() && request.auth.uid == userId;
     }
 
     function validSlug(value) {
@@ -61,22 +74,24 @@ service cloud.firestore {
 
     // Public, published card snapshots used by /c/{slug}.
     match /publicCards/{slug} {
-      allow get: if signedIn()
+      // Anyone with the link may read a published card. Unpublished snapshots
+      // are visible only to allowlisted editors.
+      allow get: if allowedEditor()
         || ('isPublished' in resource.data && resource.data.isPublished == true);
       allow list: if false;
 
-      allow create: if signedIn()
+      allow create: if allowedEditor()
         && validSlug(slug)
         && publicPayload(slug)
         && request.resource.data.ownerId == request.auth.uid;
 
-      allow update: if signedIn()
+      allow update: if allowedEditor()
         && validSlug(slug)
         && publicPayload(slug)
         && ownedPublicUpdate(slug);
 
       // Idempotent: deleting an already-missing snapshot must not abort a batch.
-      allow delete: if signedIn()
+      allow delete: if allowedEditor()
         && (resource == null || resource.data.ownerId == request.auth.uid);
     }
 

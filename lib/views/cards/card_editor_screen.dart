@@ -7,6 +7,7 @@ import '../../models/digital_card.dart';
 import '../../services/digital_card_service.dart';
 import '../../view_models/auth_controller.dart';
 import '../../view_models/digital_card_view_model.dart';
+import '../auth/access_denied_screen.dart';
 import 'digital_card_view.dart';
 
 class CardEditorScreen extends StatelessWidget {
@@ -16,6 +17,9 @@ class CardEditorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!context.read<AuthController>().isAllowedEditor) {
+      return const AccessDeniedScreen();
+    }
     return ChangeNotifierProvider(
       create:
           (_) => DigitalCardViewModel(
@@ -445,9 +449,10 @@ class _CardEditorBodyState extends State<_CardEditorBody> {
   }
 
   Future<void> _save(DigitalCardViewModel vm, {required bool publish}) async {
-    final uid = context.read<AuthController>().user?.uid;
-    if (uid == null) {
-      _showNotice('Please sign in before saving a card.');
+    final auth = context.read<AuthController>();
+    final uid = auth.user?.uid;
+    if (uid == null || !auth.isAllowedEditor) {
+      _showNotice('This account is not authorised to create or edit cards.');
       return;
     }
 

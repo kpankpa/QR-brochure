@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../view_models/auth_controller.dart';
 import '../view_models/qr_brochure_view_model.dart';
+import '../views/auth/access_denied_screen.dart';
 import '../views/auth/google_sign_in_screen.dart';
 import '../views/qr_brochure/qr_brochure_view.dart';
 
@@ -29,9 +30,12 @@ class _AuthGate extends StatelessWidget {
     final auth = context.watch<AuthController>();
     final user = auth.user;
 
-    // Require authenticated user (no anonymous)
+    // Only allowlisted Google accounts may reach the dashboard/editor.
     if (user == null || user.isAnonymous) {
       return const GoogleSignInScreen();
+    }
+    if (!auth.isAllowedEditor) {
+      return const AccessDeniedScreen();
     }
 
     return const QrBrochureView();

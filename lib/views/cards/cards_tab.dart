@@ -14,6 +14,7 @@ import '../../services/qr_downloader_stub.dart'
     if (dart.library.js_interop) '../../services/qr_downloader_web.dart'
     as card_downloader;
 import '../../view_models/auth_controller.dart';
+import '../auth/access_denied_screen.dart';
 import 'card_editor_screen.dart';
 import 'digital_card_view.dart';
 
@@ -25,9 +26,14 @@ class CardsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final uid = context.watch<AuthController>().user?.uid;
+    final auth = context.watch<AuthController>();
+    final uid = auth.user?.uid;
     final service = context.read<DigitalCardService>();
 
+    // Defence in depth: every card action is limited to the email allowlist.
+    if (!auth.isAllowedEditor) {
+      return const AccessDeniedScreen();
+    }
     if (uid == null) {
       return const Center(
         child: Padding(
