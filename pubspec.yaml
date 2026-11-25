@@ -49,6 +49,7 @@ dependencies:
   font_awesome_flutter: ^11.0.0
   http: ^1.6.0
   web: ^1.1.2
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:

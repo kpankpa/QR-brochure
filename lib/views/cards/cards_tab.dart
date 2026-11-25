@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../models/digital_card.dart';
+import '../../services/card_share_service.dart';
 import '../../services/digital_card_service.dart';
 import '../../services/qr_render_service.dart';
 import '../../services/vcard_service.dart';
@@ -192,6 +193,18 @@ class CardsTab extends StatelessWidget {
                               ),
                             ),
                             PopupMenuItem(
+                              value: 'share',
+                              enabled: card.isPublished,
+                              child: ListTile(
+                                leading: Icon(
+                                  Icons.ios_share_rounded,
+                                  size: 18,
+                                ),
+                                title: Text('Share to apps'),
+                                dense: true,
+                              ),
+                            ),
+                            PopupMenuItem(
                               value: 'copy',
                               enabled: card.isPublished,
                               child: ListTile(
@@ -282,12 +295,18 @@ class CardsTab extends StatelessWidget {
                     child: DigitalCardView(
                       card: card,
                       onSaveContact: () => _downloadVCard(context, card),
-                      onCopyLink: () => _copyCardLink(context, card),
+                      onCopyLink: () async {
+                        Navigator.of(context).pop();
+                        await _shareCard(context, card);
+                      },
                     ),
                   ),
                 ),
               ),
         );
+        break;
+      case 'share':
+        await _shareCard(context, card);
         break;
       case 'copy':
         await _copyCardLink(context, card);
@@ -454,6 +473,23 @@ class CardsTab extends StatelessWidget {
             ),
           ),
     );
+  }
+
+  Future<void> _shareCard(BuildContext context, DigitalCard card) async {
+    if (!card.isPublished || card.publicSlug.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Publish this card before sharing it.')),
+        );
+      }
+      return;
+    }
+    try {
+      await CardShareService().shareCard(card);
+    } catch (e) {
+      if (!context.mounted) return;
+      _showError(context, 'Could not open share sheet', e);
+    }
   }
 
   Future<bool> _copyCardLink(BuildContext context, DigitalCard card) async {
