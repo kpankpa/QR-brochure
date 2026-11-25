@@ -85,6 +85,14 @@ class DigitalCardService {
   static bool _validSlug(String value) =>
       RegExp(r'^[a-zA-Z0-9-]{1,40}$').hasMatch(value);
 
+  static String _requireUid(String uid) {
+    final trimmed = uid.trim();
+    if (trimmed.isEmpty) {
+      throw StateError('You must be signed in to create or edit a card.');
+    }
+    return trimmed;
+  }
+
   DocumentReference<Map<String, dynamic>> _privateRef(
     String uid,
     String cardId,
@@ -232,7 +240,9 @@ class DigitalCardService {
 
   Stream<List<DigitalCard>> watchCards(String uid) {
     final fs = _store();
-    if (fs == null) return Stream<List<DigitalCard>>.value(<DigitalCard>[]);
+    if (fs == null || uid.trim().isEmpty) {
+      return Stream<List<DigitalCard>>.value(<DigitalCard>[]);
+    }
     return fs.collection('users').doc(uid).collection('cards').snapshots().map((
       snap,
     ) {
@@ -263,6 +273,7 @@ class DigitalCardService {
     required String uid,
     required DigitalCard card,
   }) async {
+    uid = _requireUid(uid);
     if (card.isPublished) {
       final result = await publish(uid: uid, card: card);
       return result.id;
@@ -289,6 +300,7 @@ class DigitalCardService {
     required String uid,
     required DigitalCard card,
   }) async {
+    uid = _requireUid(uid);
     final fs = _store();
     if (fs == null) throw StateError('Firestore is not available.');
 
@@ -346,6 +358,7 @@ class DigitalCardService {
     required String slug,
     String? fullName,
   }) async {
+    uid = _requireUid(uid);
     final fs = _store();
     if (fs == null) return;
 
@@ -376,6 +389,7 @@ class DigitalCardService {
     String? slug,
     String? fullName,
   }) async {
+    uid = _requireUid(uid);
     final fs = _store();
     if (fs == null) return;
 

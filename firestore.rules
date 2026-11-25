@@ -1,10 +1,8 @@
 rules_version = '2';
 
-// TEMPORARY FLEXIBLE RULES
-// These rules are intentionally permissive while diagnosing a stubborn
-// cloud_firestore/permission-denied error on card save/publish.
-// TODO: tighten publicCards write access back to owner-only once the failing
-// operation is identified.
+// Firestore Security Rules - Firebase Auth Only
+// Public card pages are readable by anyone with the link. Only the signed-in
+// owner may create, update or delete their private drafts and public snapshots.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -17,26 +15,83 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
-    // Private editor documents and brochure history stay owner-scoped.
-    match /users/{userId}/{document=**} {
+    function validSlug(value) {
+      return value is string
+        && value.size() >= 1
+        && value.size() <= 40
+        && value.matches('^[a-zA-Z0-9-]+$');
+    }
+
+    function publicPayload(slug) {
+      return request.resource.data.keys().hasAll([
+          'id', 'ownerId', 'slug', 'slugLower', 'isPublished', 'fullName'
+        ])
+        && request.resource.data.id is string
+        && request.resource.data.ownerId is string
+        && validSlug(request.resource.data.slug)
+        && request.resource.data.slug == slug
+        && request.resource.data.slugLower == slug.lower()
+        && request.resource.data.isPublished == true
+        && request.resource.data.fullName is string;
+    }
+
+    function ownedPublicUpdate(slug) {
+      return resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && (!('id' in resource.data) || request.resource.data.id == resource.data.id)
+        && (!('slug' in resource.data) || request.resource.data.slug == slug)
+        && (!('isPublished' in resource.data) || resource.data.isPublished == true)
+        && request.resource.data.isPublished == true;
+    }
+
+    // Per-user brochure metadata (upload history).
+    match /users/{userId}/brochures/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['downloadUrl', 'fileName'])
+        && request.resource.data.downloadUrl is string
+        && request.resource.data.fileName is string;
+      allow update, delete: if isOwner(userId);
+    }
+
+    // Digital business cards — private editor documents.
+    match /users/{userId}/cards/{cardId} {
       allow read, write: if isOwner(userId);
     }
 
-    // Public card snapshots: readable by anyone, writable by any signed-in
-    // client so legacy documents with missing fields cannot block a save.
+    // Public, published card snapshots used by /c/{slug}.
     match /publicCards/{slug} {
-      allow read: if true;
-      allow write: if signedIn();
+      allow get: if signedIn()
+        || ('isPublished' in resource.data && resource.data.isPublished == true);
+      allow list: if false;
+
+      allow create: if signedIn()
+        && validSlug(slug)
+        && publicPayload(slug)
+        && request.resource.data.ownerId == request.auth.uid;
+
+      allow update: if signedIn()
+        && validSlug(slug)
+        && publicPayload(slug)
+        && ownedPublicUpdate(slug);
+
+      // Idempotent: deleting an already-missing snapshot must not abort a batch.
+      allow delete: if signedIn()
+        && (resource == null || resource.data.ownerId == request.auth.uid);
     }
 
+    // Lightweight scan events. Anonymous scanners may log a view.
     match /publicCards/{slug}/events/{eventId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if false;
+      allow create: if request.resource.data.keys().hasOnly(['type', 'createdAt'])
+        && request.resource.data.type is string
+        && request.resource.data.type in ['view', 'save', 'share']
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
     }
 
-    // Catch-all: authenticated clients can use any other document path.
     match /{document=**} {
-      allow read, write: if signedIn();
+      allow read, write: if false;
     }
   }
 }

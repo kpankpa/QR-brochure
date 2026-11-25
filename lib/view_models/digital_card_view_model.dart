@@ -262,6 +262,12 @@ class DigitalCardViewModel extends ChangeNotifier {
   /// Saves the card. When [publish] is true also mirrors it to `publicCards`
   /// and returns the slug used in `/c/{slug}`.
   Future<String?> save({required String uid, required bool publish}) async {
+    if (uid.trim().isEmpty) {
+      error = 'You must be signed in to create a card.';
+      _notice(error!);
+      notifyListeners();
+      return null;
+    }
     final validationError = _validationError();
     if (validationError != null) {
       error = validationError;

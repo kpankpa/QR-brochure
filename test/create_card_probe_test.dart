@@ -24,7 +24,9 @@ void main() {
     );
   });
 
-  testWidgets('Create your card on a public card is not blank', (tester) async {
+  testWidgets('public card shows only the scanned card details', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       AppProviders(
         child: MaterialApp(
@@ -35,15 +37,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Test User'), findsOneWidget);
-    expect(find.text('Create your card'), findsOneWidget);
-
-    await tester.tap(find.text('Create your card'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text('Generate QR codes for your files and links'),
-      findsOneWidget,
-    );
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.text('Create your card'), findsNothing);
+    expect(find.text('WBC-QR'), findsNothing);
   });
 }
 

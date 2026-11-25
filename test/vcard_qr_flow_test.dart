@@ -67,7 +67,10 @@ void main() {
 
     expect(find.text('Jane Doe'), findsOneWidget);
     expect(find.text('Whitebeam Concept'), findsOneWidget);
-    expect(find.text('Save contact'), findsOneWidget);
-    expect(find.text('Share'), findsOneWidget);
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.text('Create your card'), findsNothing);
+    expect(find.text('WBC-QR'), findsNothing);
+    expect(find.text('Save contact'), findsNothing);
+    expect(find.text('Share'), findsNothing);
   });
 }
